@@ -1,53 +1,65 @@
+# src/train.py
 import joblib
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.naive_bayes import MultinomialNB
-from utils import split_symptoms
-from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, accuracy_score
+from sklearn.feature_extraction.text import TfidfVectorizer
+from scipy.sparse import csr_matrix, hstack
 
-# Load data
+# ---------------------------
+# Load data hasil preprocessing
+# ---------------------------
 df = pd.read_csv(r"D:\PROJEK UAS AI PRAK\data\processed\healthcare_processed.csv")
+le_disease = joblib.load(r"D:\PROJEK UAS AI PRAK\models\disease.pkl")
 
-# Load encoder & vectorizer
-le_gender = joblib.load(r"D:\PROJEK UAS AI PRAK\models\le_gender.pkl")
-le_disease = joblib.load(r"D:\PROJEK UAS AI PRAK\models\le_disease.pkl")
-vectorizer = joblib.load(r"D:\PROJEK UAS AI PRAK\models\vectorizer_symptoms.pkl")
+# ---------------------------
+# Vectorizer (TF-IDF)
+# ---------------------------
+vectorizer = TfidfVectorizer(ngram_range=(1,2), min_df=2)
+X_text = vectorizer.fit_transform(df['Symptoms_clean'])
 
-# Pisahkan fitur & label
-X = df.drop(columns=["Disease"])
-y = df["Disease"]
+# Simpan vectorizer
+joblib.dump(vectorizer, r"D:\PROJEK UAS AI PRAK\models\symptomvectorizer_rf.pkl")
 
-# Proses kolom Symptoms
-symptoms_vectorized = vectorizer.transform(X["Symptoms"])
-symptoms_df = pd.DataFrame(symptoms_vectorized.toarray())
+# ---------------------------
+# Fitur numerik
+# ---------------------------
+X_numeric = df[["Age", "Gender", "Symptom_Count"]].values
+X_numeric_sparse = csr_matrix(X_numeric)
 
-# Hapus kolom symptoms lama
-X_numeric = X.drop(columns=["Symptoms"]).reset_index(drop=True)
+# Gabungkan numeric + teks
+X = hstack([X_numeric_sparse, X_text])
+y = df['Disease_encoded'].values
 
-# Gabungkan
-X_final = pd.concat([symptoms_df, X_numeric], axis=1)
-
-# FIX WAJIB → Semua column name jadi string
-X_final.columns = X_final.columns.astype(str)
-
-# Split
+# ---------------------------
+# Split train/test
+# ---------------------------
 X_train, X_test, y_train, y_test = train_test_split(
-    X_final, y, test_size=0.2, random_state=42
+    X, y, test_size=0.2, random_state=42
 )
 
-# Train model
-model = MultinomialNB()
-model.fit(X_train, y_train)
+# ---------------------------
+# Training RandomForest
+# ---------------------------
+model = RandomForestClassifier(
+    n_estimators=500,
+    random_state=42,
+    n_jobs=-1,
+    class_weight='balanced'
+)
+model.fit(X_train, y_train)  # ❗ Pakai X_train gabungan
+
+# ---------------------------
+# Evaluasi
+# ---------------------------
 y_pred = model.predict(X_test)
-
 print("Accuracy:", accuracy_score(y_test, y_pred))
-print("\n=== Classification Report ===")
 print(classification_report(y_test, y_pred))
-print("\n=== Confusion Matrix ===")
-print(confusion_matrix(y_test, y_pred))
 
-# Save model
-joblib.dump(model, r"D:\PROJEK UAS AI PRAK\models\disease_model.pkl")
-
-
-print("Training selesai!")
+# ---------------------------
+# Simpan model
+# ---------------------------
+joblib.dump(model, r"D:\PROJEK UAS AI PRAK\models\diseases_model_rf.pkl")
+print("Training selesai! Model siap untuk prediksi manual.")
+print("X_train shape:", X_train.shape)

@@ -10,7 +10,7 @@ import os
 # -----------------------------
 # Load dataset
 # -----------------------------
-data_path = "../data/raw/Healthcare.csv"
+data_path = r"D:\PROJEK UAS AI PRAK\data\raw\Healthcare.csv"
 df = pd.read_csv(data_path)
 
 # -----------------------------
@@ -18,24 +18,25 @@ df = pd.read_csv(data_path)
 # -----------------------------
 le_gender = LabelEncoder()
 df['Gender'] = le_gender.fit_transform(df['Gender'])  # Male=1, Female=0, Other=2
-joblib.dump(le_gender, "../models/le_gender.pkl")  # simpan encoder Gender
+joblib.dump(le_gender, "../models/gender.pkl")  # simpan encoder Gender
 
 # -----------------------------
 # Encode target Disease
 # -----------------------------
 le_disease = LabelEncoder()
 df['Disease_encoded'] = le_disease.fit_transform(df['Disease'])
-joblib.dump(le_disease, "../models/le_disease.pkl")  # simpan encoder Disease
+joblib.dump(le_disease, "../models/disease.pkl")  # simpan encoder Disease
 
 # -----------------------------
 # Process Symptoms (Bag-of-Words)
 # -----------------------------
-def split_symptoms(text):
-    return text.split(', ')
+df['Symptoms_clean'] = df['Symptoms'].str.replace(', ', ' ', regex=False)
 
-vectorizer = CountVectorizer(tokenizer=split_symptoms)
-X_symptoms = vectorizer.fit_transform(df['Symptoms'])
-joblib.dump(vectorizer, "../models/vectorizer_symptoms.pkl")
+
+vectorizer = CountVectorizer()
+X_symptoms = vectorizer.fit_transform(df['Symptoms_clean'])
+joblib.dump(vectorizer, "../models/vectorizer_symptom.pkl")
+
 
 
 # -----------------------------
@@ -64,3 +65,6 @@ print("X_train shape:", X_train.shape)
 print("X_test shape:", X_test.shape)
 print("y_train shape:", y_train.shape)
 print("y_test shape:", y_test.shape)
+print(df.head())
+print(df.columns)
+
